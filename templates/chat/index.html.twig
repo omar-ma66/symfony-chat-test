@@ -1,0 +1,62 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Chat en temps réel avec Mercure</h1>
+
+    <div id="messages" class="border p-3 mb-3" style="height: 300px; overflow-y: scroll;">
+        {% for message in messages %}
+            <div class="mb-2">
+                <strong>{{ message.sender.userIdentifier }}</strong> [{{ message.createAt|date('H:i') }}] : 
+                {{ message.content }}
+            </div>
+        {% endfor %}
+    </div>
+
+    <form id="chat-form">
+        <div class="input-group">
+            <input type="text" id="message-input" class="form-control" placeholder="Écrivez votre message..." required>
+            <button class="btn btn-primary" type="submit">Envoyer</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // 1. Connexion au Hub Mercure en écoutant le topic 'http://example.com/chat'
+    const url = new URL('http://127.0.0.1:3000/.well-known/mercure');
+    url.searchParams.append('topic', 'http://example.com/chat');
+
+    const eventSource = new EventSource(url);
+
+    // 2. Réception d'un nouveau message en temps réel
+    eventSource.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        
+        const messagesDiv = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('mb-2');
+        messageElement.innerHTML = `<strong>${data.sender}</strong> [${data.createdAt}] : ${data.content}`;
+        
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll auto vers le bas
+    };
+
+    // 3. Envoi du message via AJAX (Fetch)
+    document.getElementById('chat-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const input = document.getElementById('message-input');
+        
+        formData = new URLSearchParams();
+        formData.append('content', input.value);
+
+        fetch('{{ path("app_chat_send") }}', {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            if (response.ok) {
+                input.value = '';
+            }
+        });
+    });
+</script>
+{% endblock %}
